@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import cl.sebastianrojo.primera_app_kotlin.trivia.FeedbackState
 import cl.sebastianrojo.primera_app_kotlin.trivia.QuizUiState
 import cl.sebastianrojo.primera_app_kotlin.trivia.QuizViewModel
 import cl.sebastianrojo.primera_app_kotlin.ui.theme.AppKotlinTheme
@@ -37,7 +38,6 @@ class TriviaAppActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AppKotlinTheme {
-
                 val viewModel: QuizViewModel = viewModel()
                 val state = viewModel.uiState.collectAsStateWithLifecycle().value
 
@@ -65,25 +65,22 @@ class TriviaAppActivity : ComponentActivity() {
                         )
                     },
                 ) { innerPadding ->
-
                     Box(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
                     ) {
-
                         if (state.isFinished) {
-                            // Vista FinishedScreen
                             FinishedScreen(
                                 score = state.score,
                                 total = state.questions.size * 100
                             )
                         } else {
-                            // Vista/Pantalla QuestionScreen
                             QuestionScreen(
                                 state = state,
                                 onSelectedOption = viewModel::onSelectedOption,
-                                onConfirm = viewModel::onConfirmAnswer
+                                onConfirm = viewModel::onConfirmAnswer,
+                                onNext = viewModel::onNextQuestion
                             )
                         }
                     }
@@ -98,68 +95,71 @@ fun QuestionScreen(
     state: QuizUiState,
     onSelectedOption: (Int) -> Unit,
     onConfirm: () -> Unit,
+    onNext: () -> Unit,
 ) {
-
-    // Tomare la pregunta actual desde el estado (derivado)
     val q = state.currentQuestion ?: return
-
+    val isLastQuestion = state.currentIndex == state.questions.size - 1
+    val hasFeedback = state.feedbackState != FeedbackState.None
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-
-        // Pregunta 1 de N
         Text(
             text = "Pregunta ${state.currentIndex + 1} de ${state.questions.size}",
             style = MaterialTheme.typography.titleMedium
         )
-
-        Text(
-            text = q.title,
-            style = MaterialTheme.typography.headlineSmall
-        )
+        Text(text = q.title, style = MaterialTheme.typography.headlineSmall)
 
         q.options.forEachIndexed { index, option ->
-
             val isSelected = state.selectedIndex == index
-
             ElevatedCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onSelectedOption(index) },
+                    .clickable(enabled = !hasFeedback) { onSelectedOption(index) },
                 elevation = CardDefaults.elevatedCardElevation(
                     defaultElevation = if (isSelected) 14.dp else 1.dp
                 )
             ) {
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(
                         selected = isSelected,
-                        onClick = { onSelectedOption(index) }
+                        onClick = { if (!hasFeedback) onSelectedOption(index) }
                     )
-
-                    Spacer(
-                        modifier = Modifier.width(8.dp)
-                    )
-
-                    Text(
-                        text = option,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = option, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
-
+        if (hasFeedback) {
+            val (emoji, msg, color) = when (state.feedbackState) {
+                is FeedbackState.Correct -> Triple("✅", "Correcto", Color(0xFF388E3C))
+                is FeedbackState.Incorrect -> Triple("❌", "Incorrecto", Color(0xFFC62828))
+                else -> Triple("", "", Color.Transparent)
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+            ) {
+                Text(
+                    text = "$emoji $msg",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = color
+                )
+            }
+        }
         Button(
-            onClick = onConfirm,
+            onClick = if (hasFeedback) onNext else onConfirm,
+            enabled = state.selectedIndex != null,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Confirmar")
+            Text(
+                when {
+                    !hasFeedback -> "Confirmar"
+                    isLastQuestion -> "Ver resultados"
+                    else -> "Siguiente"
+                }
+            )
         }
     }
 }
@@ -169,7 +169,6 @@ fun FinishedScreen(
     score: Int,
     total: Int
 ) {
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -177,25 +176,20 @@ fun FinishedScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Text(
             text = "¡Quiz finalizado!",
             style = MaterialTheme.typography.headlineMedium
         )
-
         Spacer(
             modifier = Modifier.height(48.dp)
         )
-
         Text(
             text = "Tu puntaje: $score / $total",
             style = MaterialTheme.typography.titleLarge
         )
-
         Spacer(
             modifier = Modifier.height(64.dp)
         )
-
         Button(
             onClick = {}
         ) {

@@ -14,52 +14,42 @@ class QuizViewModel : ViewModel() {
         )
     )
 
-    /**
-     * "Solo lectura"
-     * UI -->
-     * uiState.value = ... ABC
-    */
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
     fun onSelectedOption(index: Int) {
-        // Obtener el estado actual
         val current = _uiState.value
 
-        // Si el usuario termino la trivia
         if (current.isFinished) return
 
-        // actualizar el estado
         _uiState.value = current.copy(selectedIndex = index)
     }
 
     fun onConfirmAnswer() {
-        // Obtener el estado actual
         val current = _uiState.value
-
-        // Validaciones
         val selected = current.selectedIndex ?: return
-
         val currentQuestion = current.currentQuestion ?: return
 
-        // Validar si "selected" es la correcta (seleccionada)
         val isCorrect = selected == currentQuestion.correctIndex
-
-        // Calcular el nuevo score (Puntaje)
         val newScore = if (isCorrect) current.score + 100 else current.score
 
-        // Validar si se acabaron las preguntas
-        val currentIndexQuestion = current.currentIndex + 1
-        val finished = currentIndexQuestion >= current.questions.size
-
-        // Actualizar el _uiState
         _uiState.value = current.copy(
             score = newScore,
-            currentIndex = currentIndexQuestion,
-            selectedIndex = null,
-            isFinished = finished
+            feedbackState = if (isCorrect) FeedbackState.Correct else FeedbackState.Incorrect
         )
     }
 
+    fun onNextQuestion() {
+        val current = _uiState.value
+        val nextIndex = current.currentIndex + 1
+        val finished = nextIndex >= current.questions.size
+
+        _uiState.value = current.copy(
+            currentIndex = nextIndex,
+            selectedIndex = null,
+            feedbackState = FeedbackState.None,
+            isFinished = finished
+        )
+    }
 
     private fun seedQuestions() : List<Question> {
         return listOf(
@@ -86,8 +76,19 @@ class QuizViewModel : ViewModel() {
                 title = "La instrucción que permite restaurar estado tras recreación de Activity es",
                 options = listOf("intentData", "savedInstanceState", "activityState", "bundleConfig"),
                 correctIndex = 1
+            ),
+            Question(
+                id = 5,
+                title = "¿Qué función se usa para manejar efectos secundarios en Compose?",
+                options = listOf("remember", "LaunchedEffect", "derivedStateOf", "mutableStateOf"),
+                correctIndex = 1
+            ),
+            Question(
+                id = 6,
+                title = "¿Cuál es la clase base de un ViewModel en Android?",
+                options = listOf("BaseViewModel", "AndroidViewModel", "ViewModel", "LiveDataModel"),
+                correctIndex = 2
             )
         )
     }
-
 }

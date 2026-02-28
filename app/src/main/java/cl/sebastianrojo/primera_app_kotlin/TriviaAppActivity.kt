@@ -73,7 +73,9 @@ class TriviaAppActivity : ComponentActivity() {
                         if (state.isFinished) {
                             FinishedScreen(
                                 score = state.score,
-                                total = state.questions.size * 100
+                                total = state.questions.size * 100,
+                                livesRemaining = state.lives,
+                                onRetry = viewModel::onRetry  // 👈
                             )
                         } else {
                             QuestionScreen(
@@ -100,14 +102,28 @@ fun QuestionScreen(
     val q = state.currentQuestion ?: return
     val isLastQuestion = state.currentIndex == state.questions.size - 1
     val hasFeedback = state.feedbackState != FeedbackState.None
+    val progressPercent = ((state.currentIndex.toFloat() / state.questions.size) * 100).toInt()
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Pregunta ${state.currentIndex + 1} de ${state.questions.size}",
-            style = MaterialTheme.typography.titleMedium
-        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Pregunta ${state.currentIndex + 1} de ${state.questions.size}",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "❤️".repeat(state.lives) + "🖤".repeat(3 - state.lives),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
         Text(text = q.title, style = MaterialTheme.typography.headlineSmall)
 
         q.options.forEachIndexed { index, option ->
@@ -132,7 +148,7 @@ fun QuestionScreen(
         }
         if (hasFeedback) {
             val (emoji, msg, color) = when (state.feedbackState) {
-                is FeedbackState.Correct -> Triple("✅", "Correcto", Color(0xFF388E3C))
+                is FeedbackState.Correct -> Triple("✅", "¡Correcto!", Color(0xFF388E3C))
                 is FeedbackState.Incorrect -> Triple("❌", "Incorrecto", Color(0xFFC62828))
                 else -> Triple("", "", Color.Transparent)
             }
@@ -156,43 +172,36 @@ fun QuestionScreen(
             Text(
                 when {
                     !hasFeedback -> "Confirmar"
-                    isLastQuestion -> "Ver resultados"
+                    isLastQuestion || state.lives <= 0 -> "Ver resultados"
                     else -> "Siguiente"
                 }
             )
         }
+        Text(
+            text = "Porcentaje de avance: $progressPercent%",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray
+        )
     }
 }
 
 @Composable
-fun FinishedScreen(
-    score: Int,
-    total: Int
-) {
+fun FinishedScreen(score: Int, total: Int, livesRemaining: Int, onRetry: () -> Unit ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text("Quiz finalizado", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "¡Quiz finalizado!",
-            style = MaterialTheme.typography.headlineMedium
+            text = "❤️".repeat(livesRemaining) + "🖤".repeat(3 - livesRemaining),
+            style = MaterialTheme.typography.headlineSmall
         )
-        Spacer(
-            modifier = Modifier.height(48.dp)
-        )
-        Text(
-            text = "Tu puntaje: $score / $total",
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(
-            modifier = Modifier.height(64.dp)
-        )
-        Button(
-            onClick = {}
-        ) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Tu puntaje: $score / $total", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(64.dp))
+        Button(onClick = onRetry) {
             Text("Reintentar Quiz")
         }
     }
